@@ -1,0 +1,445 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==============================================================================
+// ENUMS
+// ==============================================================================
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  VIEWER
+}
+
+enum EdgeStatus {
+  ONLINE
+  OFFLINE
+}
+
+enum CameraStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+}
+
+enum AlertStatus {
+  NEW
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  PUSH
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum LicenseStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum DeviceType {
+  SENSOR
+  ACTUATOR
+  CONTROLLER
+}
+
+// ==============================================================================
+// MODELS
+// ==============================================================================
+
+model Tenant {
+  id     String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name   String       @db.VarChar
+  status TenantStatus @default(ACTIVE)
+
+  // Relations
+  users         User[]
+  sites         Site[]
+  buildings     Building[]
+  floors        Floor[]
+  zones         Zone[]
+  edgeBoxes     EdgeBox[]
+  cameras       Camera[]
+  devices       Device[]
+  events        Event[]
+  rules         Rule[]
+  alerts        Alert[]
+  notifications Notification[]
+  licenses      License[]
+
+  // Audit Fields
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdBy String    @map("created_by") @db.Uuid
+  updatedBy String    @map("updated_by") @db.Uuid
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  @@index([createdAt])
+  @@map("tenants")
+}
+
+model User {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  email        String   @db.VarChar
+  passwordHash String   @map("password_hash") @db.VarChar
+  role         UserRole
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  notifications Notification[]
+
+  // Audit Fields
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdBy String    @map("created_by") @db.Uuid
+  updatedBy String    @map("updated_by") @db.Uuid
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  @@unique([email])
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model Site {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  name     String @db.VarChar
+  timezone String @db.VarChar
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  buildings Building[]
+  zones     Zone[]
+  edgeBoxes EdgeBox[]
+
+  // Audit Fields
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdBy String    @map("created_by") @db.Uuid
+  updatedBy String    @map("updated_by") @db.Uuid
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([createdAt])
+  @@map("sites")
+}
+
+model Building {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  siteId   String @map("site_id") @db.Uuid
+  name     String @db.VarChar
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  site   Site    @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  floors Floor[]
+
+  // Audit Fields
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdBy String    @map("created_by") @db.Uuid
+  updatedBy String    @map("updated_by") @db.Uuid
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([createdAt])
+  @@map("buildings")
+}
+
+model Floor {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String @map("tenant_id") @db.Uuid
+  buildingId String @map("building_id") @db.Uuid
+  name       String @db.VarChar
+  level      Int
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Restrict)
+  zones    Zone[]
+
+  // Audit Fields
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdBy String    @map("created_by") @db.Uuid
+  updatedBy String    @map("updated_by") @db.Uuid
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  @@index([tenantId])
+  @@index([buildingId])
+  @@index([createdAt])
+  @@map("floors")
+}
+
+model Zone {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String  @map("tenant_id") @db.Uuid
+  siteId   String? @map("site_id") @db.Uuid
+  floorId  String? @map("floor_id") @db.Uuid
+  name     String  @db.VarChar
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  site    Site?    @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  floor   Floor?   @relation(fields: [floorId], references: [id], onDelete: Restrict)
+  cameras Camera[]
+  devices Device[]
+
+  // Audit Fields
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdBy String    @map("created_by") @db.Uuid
+  updatedBy String    @map("updated_by") @db.Uuid
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([floorId])
+  @@index([createdAt])
+  @@map("zones")
+}
+
+model EdgeBox {
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String     @map("tenant_id") @db.Uuid
+  siteId     String     @map("site_id") @db.Uuid
+  macAddress String     @map("mac_address") @db.VarChar
+  status     EdgeStatus @default(OFFLINE)
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  site    Site     @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  cameras Camera[]
+
+  // Audit Fields
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdBy String    @map("created_by") @db.Uuid
+  updatedBy String    @map("updated_by") @db.Uuid
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  @@unique([macAddress])
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("edge_boxes")
+}
+
+model Camera {
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String       @map("tenant_id") @db.Uuid
+  zoneId    String       @map("zone_id") @db.Uuid
+  edgeBoxId String       @map("edge_box_id") @db.Uuid
+  streamUrl String       @map("stream_url") @db.VarChar
+  status    CameraStatus @default(OFFLINE)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  zone    Zone    @relation(fields: [zoneId], references: [id], onDelete: Restrict)
+  edgeBox EdgeBox @relation(fields: [edgeBoxId], references: [id], onDelete: Restrict)
+
+  // Audit Fields
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdBy String    @map("created_by") @db.Uuid
+  updatedBy String    @map("updated_by") @db.Uuid
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  @@index([tenantId])
+  @@index([zoneId])
+  @@index([edgeBoxId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("cameras")
+}
+
+model Device {
+  id       String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String     @map("tenant_id") @db.Uuid
+  zoneId   String     @map("zone_id") @db.Uuid
+  type     DeviceType
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  zone   Zone   @relation(fields: [zoneId], references: [id], onDelete: Restrict)
+
+  // Audit Fields
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdBy String    @map("created_by") @db.Uuid
+  updatedBy String    @map("updated_by") @db.Uuid
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  @@index([tenantId])
+  @@index([zoneId])
+  @@index([createdAt])
+  @@map("devices")
+}
+
+model Event {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  sourceId  String   @map("source_id") @db.Uuid
+  type      String   @db.VarChar
+  payload   Json     @db.JsonB
+  timestamp DateTime @db.Timestamptz
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  alerts Alert[]
+
+  // Audit Fields
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdBy String    @map("created_by") @db.Uuid
+  updatedBy String    @map("updated_by") @db.Uuid
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  @@index([tenantId])
+  @@index([sourceId]) // Can map to cameraId or edgeBoxId logically
+  @@index([timestamp])
+  @@index([type])
+  @@index([createdAt])
+  @@map("events")
+}
+
+model Rule {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String  @map("tenant_id") @db.Uuid
+  name       String  @db.VarChar
+  conditions Json    @db.JsonB
+  actions    Json    @db.JsonB
+  status     Boolean @default(true)
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  alerts Alert[]
+
+  // Audit Fields
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdBy String    @map("created_by") @db.Uuid
+  updatedBy String    @map("updated_by") @db.Uuid
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("rules")
+}
+
+model Alert {
+  id       String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String        @map("tenant_id") @db.Uuid
+  ruleId   String        @map("rule_id") @db.Uuid
+  eventId  String        @map("event_id") @db.Uuid
+  status   AlertStatus   @default(NEW)
+  severity AlertSeverity @default(MEDIUM)
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  rule          Rule           @relation(fields: [ruleId], references: [id], onDelete: Restrict)
+  event         Event          @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  notifications Notification[]
+
+  // Audit Fields
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdBy String    @map("created_by") @db.Uuid
+  updatedBy String    @map("updated_by") @db.Uuid
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  @@index([tenantId])
+  @@index([ruleId])
+  @@index([eventId])
+  @@index([status])
+  @@index([severity])
+  @@index([createdAt])
+  @@map("alerts")
+}
+
+model Notification {
+  id       String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String              @map("tenant_id") @db.Uuid
+  userId   String              @map("user_id") @db.Uuid
+  alertId  String              @map("alert_id") @db.Uuid
+  channel  NotificationChannel
+  status   NotificationStatus  @default(PENDING)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  alert  Alert  @relation(fields: [alertId], references: [id], onDelete: Restrict)
+
+  // Audit Fields
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdBy String    @map("created_by") @db.Uuid
+  updatedBy String    @map("updated_by") @db.Uuid
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([alertId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model License {
+  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String        @map("tenant_id") @db.Uuid
+  tier       String        @db.VarChar
+  validUntil DateTime      @map("valid_until") @db.Timestamptz
+  status     LicenseStatus @default(ACTIVE)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  // Audit Fields
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdBy String    @map("created_by") @db.Uuid
+  updatedBy String    @map("updated_by") @db.Uuid
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  @@index([tenantId])
+  @@index([validUntil])
+  @@index([status])
+  @@index([createdAt])
+  @@map("licenses")
+}

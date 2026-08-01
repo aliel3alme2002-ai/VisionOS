@@ -1,0 +1,1 @@
+export enum DetectionStatus { NEW = 'NEW', VERIFIED = 'VERIFIED', FALSE_POSITIVE = 'FALSE_POSITIVE', IGNORED = 'IGNORED' }

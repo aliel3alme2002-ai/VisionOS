@@ -1,0 +1,70 @@
+version: '3.8'
+
+networks:
+  backend:
+    driver: bridge
+  database:
+    driver: bridge
+  edge:
+    driver: bridge
+  monitoring:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  mosquitto-data:
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: visionos-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    networks:
+      - database
+      - backend
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: visionos-redis-prod
+    restart: always
+    networks:
+      - database
+      - backend
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: visionos-mosquitto-prod
+    restart: always
+    networks:
+      - edge
+      - backend
+    volumes:
+      - mosquitto-data:/mosquitto/data
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 1883 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s

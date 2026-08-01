@@ -1,0 +1,1 @@
+export type ArtifactState = 'DOWNLOADING' | 'VERIFYING' | 'EXTRACTING' | 'INSTALLING' | 'READY' | 'FAILED' | 'ROLLBACK';

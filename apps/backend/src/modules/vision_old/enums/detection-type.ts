@@ -1,0 +1,1 @@
+export enum DetectionType { PERSON = 'PERSON', VEHICLE = 'VEHICLE', FACE = 'FACE', FIRE = 'FIRE', SMOKE = 'SMOKE', PPE = 'PPE', POSE = 'POSE', DROWNING = 'DROWNING', CUSTOM = 'CUSTOM' }

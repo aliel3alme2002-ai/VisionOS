@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480">
+  <rect width="100%" height="100%" fill="#0a0a10"/>
+  <text x="20" y="40" fill="#00ffcc" font-family="monospace" font-size="18" font-weight="bold">VisionOS Live Laptop Webcam Engine</text>
+  <text x="20" y="70" fill="#ffffff" font-family="monospace" font-size="13">DirectShow FFmpeg Stream | Provider: CPU</text>
+  <rect x="150" y="100" width="220" height="280" fill="none" stroke="#00ffcc" stroke-width="3"/>
+  <rect x="150" y="75" width="220" height="25" fill="#00ffcc"/>
+  <text x="155" y="92" fill="#000000" font-family="monospace" font-size="12" font-weight="bold">TRK-1: person (92.4%)</text>
+</svg>

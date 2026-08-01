@@ -1,0 +1,4 @@
+export class RoleDeletedEvent {
+  public readonly occurredOn: Date = new Date();
+  constructor(public readonly roleId: string) {}
+}

@@ -1,0 +1,1 @@
+export enum ModelStatus { ACTIVE = 'ACTIVE', INACTIVE = 'INACTIVE', DEPLOYING = 'DEPLOYING', FAILED = 'FAILED' }

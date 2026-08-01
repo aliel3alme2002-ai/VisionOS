@@ -1,0 +1,192 @@
+version: '3.8'
+
+networks:
+  visionos-internal:
+    driver: bridge
+    internal: true
+  visionos-external:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  mosquitto_data:
+  mosquitto_log:
+  prometheus_data:
+  grafana_data:
+  frigate_data:
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. PostgreSQL Database
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: visionos-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-visionos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-visionos_secret_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-visionos}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - visionos-internal
+      - visionos-external
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-visionos} -d ${POSTGRES_DB:-visionos}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # 2. Redis Cache & Messaging
+  # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: visionos-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    networks:
+      - visionos-internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # 3. MinIO Object Storage
+  # ----------------------------------------------------------------------------
+  minio:
+    image: minio/minio:RELEASE.2023-09-04T19-57-37Z
+    container_name: visionos-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-visionos_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-visionos_minio_pass}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - visionos-internal
+      - visionos-external
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio-create-buckets:
+    image: minio/mc:RELEASE.2023-09-02T04-10-38Z
+    container_name: visionos-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER:-visionos_admin} ${MINIO_ROOT_PASSWORD:-visionos_minio_pass};
+      /usr/bin/mc mb myminio/visionos-recordings --ignore-existing;
+      /usr/bin/mc mb myminio/visionos-snapshots --ignore-existing;
+      /usr/bin/mc mb myminio/visionos-models --ignore-existing;
+      /usr/bin/mc mb myminio/visionos-avatars --ignore-existing;
+      /usr/bin/mc anonymous set download myminio/visionos-avatars;
+      exit 0;
+      "
+    networks:
+      - visionos-internal
+
+  # ----------------------------------------------------------------------------
+  # 4. Mosquitto MQTT Broker
+  # ----------------------------------------------------------------------------
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: visionos-mosquitto
+    restart: unless-stopped
+    volumes:
+      - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    networks:
+      - visionos-internal
+      - visionos-external
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -c 1 -i healthcheck | grep -q '$$SYS' || exit 0"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ----------------------------------------------------------------------------
+  # 5. Frigate NVR
+  # ----------------------------------------------------------------------------
+  frigate:
+    image: ghcr.io/blakeblackshear/frigate:stable
+    container_name: visionos-frigate
+    restart: unless-stopped
+    shm_size: "64mb"
+    volumes:
+      - ./docker/frigate/config.yml:/config/config.yml
+      - frigate_data:/media/frigate
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    networks:
+      - visionos-internal
+      - visionos-external
+
+  # ----------------------------------------------------------------------------
+  # 6. Monitoring (Prometheus & Grafana)
+  # ----------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: visionos-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - visionos-internal
+      - visionos-external
+
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: visionos-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin_pass}
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - visionos-internal
+      - visionos-external
+
+  # ----------------------------------------------------------------------------
+  # 7. Database & Admin Tools
+  # ----------------------------------------------------------------------------
+  pgadmin:
+    image: dpage/pgadmin4:7.6
+    container_name: visionos-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@visionos.io}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-pgadmin_pass}
+    networks:
+      - visionos-internal
+      - visionos-external
+
+  adminer:
+    image: adminer:4.8.1
+    container_name: visionos-adminer
+    restart: unless-stopped
+    networks:
+      - visionos-internal
+      - visionos-external

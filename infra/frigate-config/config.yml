@@ -1,0 +1,31 @@
+# VisionOS Frigate NVR Base Configuration Template
+
+mqtt:
+  enabled: true
+  host: mosquitto
+  port: 1883
+  topic_prefix: frigate
+  client_id: frigate_edge_box
+
+detectors:
+  cpu1:
+    type: cpu
+
+database:
+  path: /config/frigate.db
+
+version: 0.14
+
+cameras:
+  synthetic_test_cam:
+    enabled: true
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/live
+          roles:
+            - detect
+    detect:
+      enabled: false
+      width: 1280
+      height: 720
+      fps: 5

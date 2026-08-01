@@ -1,0 +1,19 @@
+{
+  "name": "visionos",
+  "private": true,
+  "version": "1.0.0",
+  "description": "VisionOS Hybrid Edge-Cloud AI Vision Intelligence Platform",
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "lint": "eslint .",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,json,md,yml,yaml}\"",
+    "test": "pnpm -r run test"
+  },
+  "devDependencies": {
+    "@prisma/client": "^7.9.1",
+    "@prisma/config": "^7.9.1",
+    "prisma": "^7.9.1"
+  }
+}
