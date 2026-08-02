@@ -70,3 +70,11 @@ Thumbs.db
 *.tmp
 *.temp
 docker-compose.override.yml
+
+# AI Model Binaries
+**/models/zoo/*.onnx
+**/models/zoo/*.pt
+**/models/zoo/*.engine
+**/models/zoo/*.bin
+!**/models/zoo/.gitkeep
+
